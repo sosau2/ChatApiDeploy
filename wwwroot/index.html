@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chat del aula</title>
+    <style>
+        :root {
+            --bg: #f3f6ff;
+            --panel: #ffffff;
+            --primary: #4f46e5;
+            --primary-dark: #3730a3;
+            --accent: #e0e7ff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --danger: #dc2626;
+            --danger-dark: #b91c1c;
+            --border: #dbe3f0;
+            --shadow: 0 8px 24px rgba(79, 70, 229, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, Helvetica, sans-serif;
+            background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 32px 16px;
+        }
+
+        .container {
+            width: min(800px, 100%);
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            padding: 24px;
+        }
+
+        h1 {
+            margin: 0 0 20px;
+            text-align: center;
+            color: var(--primary-dark);
+            font-size: clamp(2rem, 3vw, 2.5rem);
+        }
+
+        form {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        label {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        input,
+        textarea,
+        button {
+            font: inherit;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #f9fafb;
+            color: var(--text);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 90px;
+        }
+
+        .acciones {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: none;
+            border-radius: 10px;
+            padding: 11px 16px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: transform 0.15s ease, opacity 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        .primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .secondary {
+            background: var(--accent);
+            color: var(--primary-dark);
+        }
+
+        #aviso {
+            min-height: 24px;
+            margin: 12px 0 18px;
+            font-size: 0.95rem;
+            color: var(--muted);
+        }
+
+        #lista {
+            display: grid;
+            gap: 14px;
+        }
+
+        .mensaje {
+            background: #f8faff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .mensaje strong {
+            color: var(--primary-dark);
+            font-size: 1rem;
+        }
+
+        .mensaje p {
+            margin: 0;
+            color: var(--text);
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .mensaje button {
+            align-self: flex-end;
+            background: #fee2e2;
+            color: var(--danger-dark);
+            padding: 8px 12px;
+        }
+
+        .mensaje button:hover {
+            background: #fecaca;
+        }
+
+        @media (max-width: 520px) {
+            .container {
+                padding: 18px 14px;
+            }
+
+            .acciones {
+                flex-direction: column;
+            }
+
+            .acciones button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chat del aula</h1>
+
+        <form id="formulario">
+            <div>
+                <label for="usuario">Tu nombre</label>
+                <input id="usuario" maxlength="30" required>
+            </div>
+
+            <div>
+                <label for="texto">Tu mensaje</label>
+                <textarea id="texto" rows="2" maxlength="280" required></textarea>
+            </div>
+
+            <div class="acciones">
+                <button type="submit" class="primary">Enviar</button>
+                <button type="button" id="actualizar" class="secondary">Actualizar</button>
+            </div>
+        </form>
+
+        <p id="aviso" aria-live="polite"></p>
+        <div id="lista"></div>
+    </div>
+
+    <script>
+        const lista = document.getElementById("lista");
+        const aviso = document.getElementById("aviso");
+        const formulario = document.getElementById("formulario");
+
+        async function cargar() {
+            try {
+                const respuesta = await fetch("/api/mensajes");
+                if (!respuesta.ok) throw new Error("Error " + respuesta.status);
+
+                const mensajes = await respuesta.json();
+                lista.innerHTML = "";
+
+                if (mensajes.length === 0) {
+                    aviso.textContent = "Todavía no hay mensajes. ¡Escribe el primero!";
+                    return;
+                }
+
+                for (const m of mensajes) {
+                    const caja = document.createElement("div");
+                    caja.className = "mensaje";
+
+                    const autor = document.createElement("strong");
+                    autor.textContent = m.usuario;
+
+                    const texto = document.createElement("p");
+                    texto.textContent = m.texto;
+
+                    const boton = document.createElement("button");
+                    boton.textContent = "Eliminar";
+                    boton.type = "button";
+                    boton.addEventListener("click", () => eliminar(m.id));
+
+                    caja.append(autor, texto, boton);
+                    lista.appendChild(caja);
+                }
+
+                aviso.textContent = "";
+            } catch (error) {
+                aviso.textContent = "No se pudieron cargar los mensajes: " + error.message;
+            }
+        }
+
+        async function eliminar(id) {
+            if (!confirm("¿Eliminar mensaje?")) return;
+
+            try {
+                const respuesta = await fetch("/api/mensajes/" + id, {
+                    method: "DELETE"
+                });
+
+                if (!respuesta.ok) throw new Error("Error " + respuesta.status);
+
+                await cargar();
+            } catch (error) {
+                aviso.textContent = "No se pudo eliminar el mensaje: " + error.message;
+            }
+        }
+
+        formulario.addEventListener("submit", async (evento) => {
+            evento.preventDefault();
+
+            const usuario = document.getElementById("usuario").value.trim();
+            const texto = document.getElementById("texto").value.trim();
+
+            if (!usuario || !texto) {
+                aviso.textContent = "Completa tu nombre y mensaje antes de enviar.";
+                return;
+            }
+
+            try {
+                const respuesta = await fetch("/api/mensajes", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ usuario, texto })
+                });
+
+                if (!respuesta.ok) {
+                    throw new Error("Error " + respuesta.status);
+                }
+
+                document.getElementById("texto").value = "";
+                aviso.textContent = "";
+                await cargar();
+            } catch (error) {
+                aviso.textContent = "No se pudo enviar el mensaje: " + error.message;
+            }
+        });
+
+        document.getElementById("actualizar").addEventListener("click", cargar);
+        cargar();
+    </script>
+</body>
+</html>
